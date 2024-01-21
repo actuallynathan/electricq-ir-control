@@ -1,3 +1,4 @@
+#pragma once
 #include <algorithm>
 
 enum class Power : uint8_t {
@@ -60,10 +61,13 @@ typedef union {
 
 void calculate_checksum(IRCommand* cmd) {
   cmd->data[0] |= 0x56;
-  // bound our temperature to 16-32
-  cmd->temperature_set = std::min(cmd->temperature_set, static_cast<uint8_t>(32));
-  cmd->temperature_set = std::max(cmd->temperature_set, static_cast<uint8_t>(16));
-  cmd->temperature_set += 0x5C;
+  // bound our temperature to 16-32, unless we're already in the range of 0x6C-0x7C
+  if(cmd->temperature_set < 0x6C || cmd->temperature_set > 0x7C)
+  {
+    cmd->temperature_set = std::min(cmd->temperature_set, static_cast<uint8_t>(32));
+    cmd->temperature_set = std::max(cmd->temperature_set, static_cast<uint8_t>(16));
+    cmd->temperature_set += 0x5C;
+  }
 
   cmd->heating_or_auto = (cmd->mode == Mode::MODE_HEAT || cmd->mode == Mode::MODE_AUTO);
 

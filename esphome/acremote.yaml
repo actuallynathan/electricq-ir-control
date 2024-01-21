@@ -1,0 +1,68 @@
+esphome:
+  name: acremote
+  includes: 
+  - electriq.h
+  - IRCommand.h
+
+  libraries:
+    - IRremote
+
+web_server:
+  port: 80
+
+esp8266:
+  board: nodemcuv2
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: ""
+
+ota:
+  password: ""
+
+wifi:
+  ssid: ""
+  password: ""
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Ac Remote Fallback Hotspot"
+    password: ""
+
+captive_portal:
+  
+switch:
+  - platform: template
+    name: "UVC"
+    id: uvc
+    optimistic: true
+
+sensor:
+  - platform: homeassistant
+    id: current_temperature    
+    filters:
+      - throttle: 10s
+      - heartbeat: 2min             # Maximum interval between updates.
+      - debounce: 1s
+    entity_id: sensor.bedroom_temperature_temperature
+
+button:
+  - platform: template
+    name: "Toggle display"
+    id: toggle_display
+    
+climate:
+- platform: custom
+  lambda: |-
+    auto my_custom_climate = new ElectriqClimate();
+    my_custom_climate->register_temperature_sensor(id(current_temperature));
+    my_custom_climate->register_uvc_switch(id(uvc));
+    my_custom_climate->register_toggle_display(id(toggle_display));
+    App.register_component(my_custom_climate);
+    return {my_custom_climate};
+
+  climates:
+    - name: "Climate remote"
