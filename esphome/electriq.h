@@ -22,8 +22,14 @@ class ElectriqClimate : public Component, public Climate {
   {
     current_temperature->add_on_state_callback([this](float state){ 
       this->current_temperature = state; 
-      this->ir_cmd.temperature_feedback = (uint8_t) (this->current_temperature * 2);
-      ESP_LOGD("electriq", "temperature updated: %0.1f", (float)(this->ir_cmd.temperature_feedback) / 2);
+
+      uint8_t offset = 20;
+      if(this->ir_cmd.mode == Mode::MODE_HEAT)
+      {
+        offset = 25;
+      }
+      this->ir_cmd.temperature_feedback = static_cast<uint8_t>(this->current_temperature) + offset;
+      ESP_LOGD("electriq", "temperature updated: %i", this->ir_cmd.temperature_feedback);
 
       this->ir_cmd.ifeel_update = true;
       calculate_checksum(&this->ir_cmd);
@@ -40,6 +46,20 @@ class ElectriqClimate : public Component, public Climate {
       this->ir_cmd.ifeel_update = false;
 
       ESP_LOGD("electriq", "uvc is now ", ((state) ? "ENABLED" : "DISABLED"));
+      
+      calculate_checksum(&this->ir_cmd);
+      ESP_LOGD("electriq", "sending command: 0x%llx 0x%llx", this->ir_cmd.data[0], this->ir_cmd.data[1]);
+      IrSender.sendPulseDistanceWidthFromArray(38, 8400, 4250, 500, 1650, 500, 600, &this->ir_cmd.data[0], 120, PROTOCOL_IS_LSB_FIRST, 0, 0);
+    });
+  }
+
+  void register_turbo_switch(esphome::template_::TemplateSwitch *turbo_switch)
+  {
+    turbo_switch->add_on_state_callback([this](bool state){ 
+      this->ir_cmd.turbo = state;
+      this->ir_cmd.ifeel_update = false;
+
+      ESP_LOGD("electriq", "turbo is now ", ((state) ? "ENABLED" : "DISABLED"));
       
       calculate_checksum(&this->ir_cmd);
       ESP_LOGD("electriq", "sending command: 0x%llx 0x%llx", this->ir_cmd.data[0], this->ir_cmd.data[1]);
@@ -192,6 +212,24 @@ class ElectriqClimate : public Component, public Climate {
       updated_state = true;
     }
 
+    if(call.get_preset().has_value()) 
+    {
+      ClimatePreset preset = call.get_preset().value();
+
+      if(preset == ClimatePreset::CLIMATE_PRESET_NONE)
+      {
+        ESP_LOGD("electriq", "Preset NONE");
+        this->ir_cmd.turbo = false;
+        updated_state = true;
+      }
+      else if(preset == ClimatePreset::CLIMATE_PRESET_BOOST)
+      {
+        ESP_LOGD("electriq", "Preset BOOST");
+        this->ir_cmd.turbo = true;
+        updated_state = true;
+      }
+      this->preset = preset;
+    }
     if(updated_state)
     {
       calculate_checksum(&this->ir_cmd);
@@ -224,6 +262,9 @@ class ElectriqClimate : public Component, public Climate {
     traits.add_supported_swing_mode(ClimateSwingMode::CLIMATE_SWING_VERTICAL);
     traits.add_supported_swing_mode(ClimateSwingMode::CLIMATE_SWING_HORIZONTAL);
     traits.add_supported_swing_mode(ClimateSwingMode::CLIMATE_SWING_BOTH);
+
+    traits.add_supported_preset(ClimatePreset::CLIMATE_PRESET_NONE);
+    traits.add_supported_preset(ClimatePreset::CLIMATE_PRESET_BOOST);
 
     return traits;
   }

@@ -40,6 +40,11 @@ switch:
     id: uvc
     optimistic: true
 
+  - platform: template
+    name: "Turbo"
+    id: turbo
+    optimistic: true
+
 sensor:
   - platform: homeassistant
     id: current_temperature    
@@ -47,8 +52,8 @@ sensor:
       - throttle: 10s
       - heartbeat: 2min             # Maximum interval between updates.
       - debounce: 1s
-    entity_id: sensor.bedroom_temperature_temperature
-
+    entity_id: sensor.bedroom_thermometer_temperature
+    
 button:
   - platform: template
     name: "Toggle display"
@@ -60,6 +65,7 @@ climate:
     auto my_custom_climate = new ElectriqClimate();
     my_custom_climate->register_temperature_sensor(id(current_temperature));
     my_custom_climate->register_uvc_switch(id(uvc));
+    my_custom_climate->register_turbo_switch(id(turbo));
     my_custom_climate->register_toggle_display(id(toggle_display));
     App.register_component(my_custom_climate);
     return {my_custom_climate};
